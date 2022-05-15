@@ -101,3 +101,36 @@ sys_getProcInfo(void)
 {
   return getProcInfo();
 }
+
+int
+sys_thread_create(void)
+{
+  void* stack;
+  if (argptr(0, (void*)&stack, sizeof(*stack)) < 0)
+  {
+    return -1;
+  }
+  else
+  {
+    return thread_create(stack);
+  }
+  return thread_create(stack);
+}
+
+int
+sys_thread_id(void)
+{
+  return thread_id();
+}
+
+int
+sys_thread_join(void)
+{
+  int id;
+  if (argint(0, &id) < 0)
+  {    
+    return -1;
+  }
+  else
+    return thread_join(id);
+}

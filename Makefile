@@ -183,6 +183,9 @@ UPROGS=\
 	_zombie\
 	_getTicksTest\
 	_getProcInfoTest\
+	_thread_creator\
+	_threads\
+	_threadsTest\
 
 fs.img: mkfs README $(UPROGS)
 	./mkfs fs.img README $(UPROGS)
@@ -257,6 +260,9 @@ EXTRA=\
 	.gdbinit.tmpl gdbutil\
 	getTicksTest.c\
 	getProcInfoTest.c\
+	thread_creator.c\
+	threads.c\
+	threadsTest.c\
 
 dist:
 	rm -rf dist

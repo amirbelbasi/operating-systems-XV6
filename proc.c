@@ -89,6 +89,8 @@ found:
   p->state = EMBRYO;
   p->pid = nextpid++;
   p->ctime = ticks;
+  p->stackTop = -1;
+  p->threads = -1;
 
   release(&ptable.lock);
 
@@ -557,4 +559,102 @@ getProcInfo(void)
   cprintf("Current Time: ");
   getTicks();
   return 0;
+}
+
+int
+check_pgdir_share(struct proc *process)
+{
+  struct proc *p;
+  for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+    if(p != process && p->pgdir == process->pgdir) return 0;
+  }
+  return 1;
+}
+
+int
+thread_create(void* stack)
+{
+  int pid = 3;
+  struct proc *curproc = myproc();
+  struct proc *np;
+
+  if((np = allocproc()) == 0){
+    return -1;
+  }
+
+  if(curproc->threads == -1){
+    curproc->threads = 0;
+    curproc->stackTop = (int)(curproc->tf->esp + PGSIZE);
+  }
+  curproc->threads++;
+  np->threads = 0;
+  np->stackTop = (int)((void*)stack + PGSIZE);
+  acquire(&ptable.lock);
+  np->pgdir = curproc->pgdir;
+  np->sz = curproc->sz;
+  release(&ptable.lock);
+  int bytesOnStack = curproc->stackTop - curproc->tf->esp;
+  np->tf->esp = np->stackTop - bytesOnStack;
+  memmove((void*)np->tf->esp, (void*)curproc->tf->esp, bytesOnStack);
+  np->parent = curproc;
+  *np->tf = *curproc->tf;
+  np->tf->eax = 0;
+  np->tf->esp = np->stackTop - bytesOnStack;
+  np->tf->ebp = np->stackTop - (curproc->stackTop - curproc->tf->ebp);
+
+  int i;
+  for(i = 0; i < NOFILE; i++)
+    if(curproc->ofile[i]) np->ofile[i] = filedup(curproc->ofile[i]);
+  np->cwd = idup(curproc->cwd);
+  safestrcpy(np->name, curproc->name, sizeof(curproc->name));
+  pid = np->pid;
+  acquire(&ptable.lock);
+  np->state = RUNNABLE;
+  release(&ptable.lock);
+  return pid;
+}
+
+int
+thread_id(void)
+{
+  return myproc()->pid;
+}
+
+int
+thread_join(int id)
+{
+  struct proc *p;
+  int havekids, pid;
+  struct proc *curproc = myproc();
+
+  acquire(&ptable.lock);
+  for(;;){
+    havekids = 0;
+    for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+      if(p->parent != curproc) continue;
+      if(p->threads == -1) continue;
+      havekids = 1;
+      if(p->state == ZOMBIE){
+        pid = p->pid;
+        kfree(p->kstack);
+        p->kstack = 0;
+        if(check_pgdir_share(p)) freevm(p->pgdir);
+        p->pid = 0;
+        p->parent = 0;
+        p->name[0] = 0;
+        p->killed = 0;
+        p->state = UNUSED;
+        p -> stackTop = 0;
+        p -> pgdir = 0;
+        p -> threads = -1;
+        release(&ptable.lock);
+        return pid;
+      }
+    }
+    if(!havekids || curproc->killed){
+      release(&ptable.lock);
+      return -1;
+    }
+    //sleep(curproc, &ptable.lock);
+  }
 }
