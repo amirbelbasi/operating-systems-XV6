@@ -1,4 +1,4 @@
-# OS-project
+# operating-systems-XV6
 
 * XV6 | Operating Systems
   * Manipulated the XV6 operating system (taken from MIT's 2006 OS course project) in order to achieve certain functionalities
